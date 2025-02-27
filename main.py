@@ -113,14 +113,8 @@ async def upload_handler(_, update):
     
     await message.edit_text(text, reply_markup=reply_markup, disable_web_page_preview=True)
 
-async def send_restart_message():
-    restart_user_id = 6133992240
-    try:
-        await Bot.send_message(restart_user_id, "✅ Bot has restarted successfully.")
-    except Exception as e:
-        print(f"Failed to send restart message: {e}")
-    
+
 if __name__ == "__main__":
-    asyncio.run(send_restart_message())
+   # asyncio.run(send_restart_message())
     print("Bot is started working!")
     Bot.run()
