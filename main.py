@@ -5,26 +5,31 @@ from gofile import uploadFile
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-
+# Load environment variables
 load_dotenv()
 
+API_ID = int(os.getenv("API_ID", 25069425))
+API_HASH = os.getenv("API_HASH", "41034e257e6449615faea5f18bbe1dd7")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "7204693012:AAE3BsJPhgTm4K__kbV_IfHlsBpkrF-tbg0")
+
+# Initialize bot client
 Bot = Client(
     "GoFile-Bot",
-    bot_token=os.environ.get("BOT_TOKEN"),
-    api_id=int(os.environ.get("API_ID")),
-    api_hash=os.environ.get("API_HASH"),
+    bot_token=BOT_TOKEN,
+    api_id=API_ID,
+    api_hash=API_HASH,
 )
 
 INSTRUCTIONS = """
-I am a gofile uploader telegram bot. \
-You can upload files to gofile.io with command.
+I am a GoFile uploader Telegram bot. 
+You can upload files to gofile.io with the following commands:
 
 With media:
     Normal:
         `/upload`
     With token:
         `/upload token`
-    With folder id:
+    With folder ID:
         `/upload token folderid`
 
 Using Link:
@@ -32,106 +37,94 @@ Using Link:
         `/upload url`
     With token:
         `/upload url token`
-    With folder id:
+    With folder ID:
         `/upload url token folderid`
 """
-
 
 @Bot.on_message(filters.private & filters.command("start"))
 async def start(bot, update):
     await update.reply_text(
-        text=f"Hello {update.from_user.mention}," + INSTRUCTIONS,
+        text=f"Hello {update.from_user.mention},\n\n{INSTRUCTIONS}",
         disable_web_page_preview=True,
         quote=True,
     )
 
-
 @Bot.on_message(filters.private & filters.command("upload"))
-async def filter(_, update):
-
-    message = await update.reply_text(
-        text="`Processing...`", quote=True, disable_web_page_preview=True
-    )
+async def upload_handler(_, update):
+    message = await update.reply_text("`Processing...`", quote=True)
 
     text = update.text.replace("\n", " ")
-    url = None
-    token = None
-    folderId = None
+    url, token, folderId = None, None, None
 
     if " " in text:
         text = text.split(" ", 1)[1]
         if update.reply_to_message:
-            if " " in text:
-                token, folderId = text.split(" ", 1)
-            else:
-                token = text
+            parts = text.split()
+            token = parts[0] if len(parts) > 0 else None
+            folderId = parts[1] if len(parts) > 1 else None
         else:
-            if " " in text:
-                if len(text.split()) > 2:
-                    url, token, folderId = text.split(" ", 2)
-                else:
-                    url, token = text.split()
-            else:
-                url = text
+            parts = text.split()
+            url = parts[0]
+            token = parts[1] if len(parts) > 1 else None
+            folderId = parts[2] if len(parts) > 2 else None
+
             if not (url.startswith("http://") or url.startswith("https://")):
-                await message.edit_text("Error :- `url is wrong`")
+                await message.edit_text("Error: `Invalid URL`")
                 return
     elif not update.reply_to_message:
-        await message.edit_text("Error :- `downloadable media or url not found`")
+        await message.edit_text("Error: `No media or URL found`")
         return
 
     try:
-
         await message.edit_text("`Downloading...`")
         if url:
             response = requests.get(url)
-            media = response.url.split("/", -1)[-1]
+            media = url.split("/")[-1]
             with open(media, "wb") as file:
                 file.write(response.content)
         else:
             media = await update.reply_to_message.download()
-        await message.edit_text("`Downloaded Successfully`")
 
-        await message.edit_text("`Uploading...`")
+        await message.edit_text("`Download complete. Uploading...`")
         response = uploadFile(file_path=media, token=token, folderId=folderId)
-        await message.edit_text("`Uploading Successfully`")
+        await message.edit_text("`Upload successful!`")
 
-        try:
-            os.remove(media)
-        except:
-            pass
+        os.remove(media)
 
     except Exception as error:
-        await message.edit_text(f"Error :- `{error}`")
+        await message.edit_text(f"Error: `{error}`")
         return
 
-    text = f"**File Name:** `{response['name']}`" + "\n"
-    text += f"**File ID:** `{response['id']}`" + "\n"
-    text += f"**Parent Folder Code:** `{response['parentFolderCode']}`" + "\n"
-    text += f"**Guest Token:** `{response['guestToken']}`" + "\n"
-    text += f"**md5:** `{response['md5']}`" + "\n"
-    text += f"**Download Page:** `{response['downloadPage']}`"
+    text = (
+        f"**File Name:** `{response['name']}`\n"
+        f"**File ID:** `{response['id']}`\n"
+        f"**Parent Folder Code:** `{response['parentFolderCode']}`\n"
+        f"**Guest Token:** `{response['guestToken']}`\n"
+        f"**MD5:** `{response['md5']}`\n"
+        f"**Download Page:** `{response['downloadPage']}`"
+    )
     link = response["downloadPage"]
-    reply_markup = InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(text="Open Link", url=link),
-                InlineKeyboardButton(
-                    text="Share Link", url=f"https://telegram.me/share/url?url={link}"
-                ),
-            ],
-            [
-                InlineKeyboardButton(
-                    text="Feedback", url="https://telegram.me/FayasNoushad"
-                )
-            ],
-        ]
-    )
-    await message.edit_text(
-        text=text, reply_markup=reply_markup, disable_web_page_preview=True
-    )
+    reply_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton(text="Open Link", url=link),
+         InlineKeyboardButton(text="Share Link", url=f"https://telegram.me/share/url?url={link}")],
+        [InlineKeyboardButton(text="Feedback", url="https://telegram.me/FayasNoushad")]
+    ])
+    
+    await message.edit_text(text, reply_markup=reply_markup, disable_web_page_preview=True)
 
+async def send_restart_message():
+    restart_user_id = 6133992240
+    try:
+        await Bot.send_message(restart_user_id, "✅ Bot has restarted successfully.")
+    except Exception as e:
+        print(f"Failed to send restart message: {e}")
+
+async def main():
+    await Bot.start()
+    print("Bot is running...")
+    await send_restart_message()
+    await Bot.idle()
 
 if __name__ == "__main__":
-    print("Bot is started working!")
-    Bot.run()
+    import asyncio
+    asyncio.run(main())
