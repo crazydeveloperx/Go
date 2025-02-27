@@ -1,4 +1,5 @@
 import os
+import asyncio
 import requests
 from dotenv import load_dotenv
 from gofile import uploadFile
