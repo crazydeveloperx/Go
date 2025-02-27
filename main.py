@@ -118,13 +118,8 @@ async def send_restart_message():
         await Bot.send_message(restart_user_id, "✅ Bot has restarted successfully.")
     except Exception as e:
         print(f"Failed to send restart message: {e}")
-
-async def main():
-    await Bot.start()
-    print("Bot is running...")
-    await send_restart_message()
-    await Bot.idle()
-
+    
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    asyncio.run(send_restart_message())
+    print("Bot is started working!")
+    Bot.run()
